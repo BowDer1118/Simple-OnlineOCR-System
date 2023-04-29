@@ -20,7 +20,7 @@ clients = {}
 def display_message(message: str):
     # 顯示帶有時間戳的訊息
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-    print(f"[{current_time}]: {message}")
+    print(f"{current_time}: {message}")
 
 # 建立 WebSocket 伺服器處理函式
 async def server(websocket, path):
@@ -35,9 +35,10 @@ async def server(websocket, path):
 
             # 將訊息轉換為 JSON
             message_json = json.loads(message)
+            
 
-            # 如果收到的JSON資料只有一個key-value，代表是握手請求。
-            if len(message_json) == 1:
+            # 如果收到的訊息包含客戶端名稱，則建立一個新的客戶端資訊
+            if len(message_json)==1 and 'ClientName' in message_json:
                 # 生成一個帶有時間資訊的 uuid 字串
                 current_time = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
                 client_uuid = f"{current_time}-{uuid.uuid4()}"
@@ -51,17 +52,18 @@ async def server(websocket, path):
                 data={"ClientUUID": client_uuid}
 
                 # 顯示已接受客戶端的連線請求
-                display_message(f"已接受客戶端名稱[{client_info.client_name}]的連線請求，並分配給客戶端UUID[{client_uuid}]")
+                display_message(f"已接受客戶端名稱 {client_info.client_name}的連線請求!")
 
             # 如果收到圖片
-            elif len(message_json) == 3:
-                display_message(f"已收到來自CleintUUID[{message_json['ClientUUID']}]的[{message_json['ImageFileName']}]圖片")
+            elif ('ClientUUID' in message_json) and ('ImageFileName' in message_json) and ('ImageBase64Data' in message_json):
+                display_message(f"已收到來自客戶端名稱 {message_json['ClientName'] }的 {message_json['ImageFileName']} 圖片")
                 # 組裝要傳送的 JSON 物件
                 data={
                     "ResponseMessage": "SUCCESS",
                     "ImageFileName": message_json['ImageFileName'],
                     "OcrResult": "假裝完成 OCR 任務了"
                 }
+
             # 回傳處理結果
             await websocket.send(json.dumps(data))
     except Exception as e:

@@ -27,17 +27,22 @@ class OCRWebSocketSender:
         # 初始化伺服器回應計數器
         self.response_counter = 0
 
+        # 初始化來自伺服器給的client_uuid
+        self.client_uuid=''
+
     def display_message(self, message: str):
         # 顯示帶有時間戳的訊息
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
         print(f'[{current_time}][{self.client_name}] {message}')
 
     def on_open(self, websocket):
+        #發送用戶名稱給伺服器，讓他認識我們
+        self.websocket.send(json.dumps({
+            "ClientName":self.client_name
+        }))
         # 當與伺服器的 WebSocket 連線成功時，顯示連線訊息
         self.display_message("已與伺服器建立連線!")
         
-        # 發送第一張圖片資訊
-        self.send_image(self.image_paths[0])
 
     def on_error(self, websocket, error):
         # 當 WebSocket 連線出現錯誤時，顯示錯誤訊息
@@ -46,23 +51,29 @@ class OCRWebSocketSender:
     def on_message(self, websocket, message):
         # 處理從 WebSocket 伺服器接收到的訊息
         response = json.loads(message)
-        response_message = response['ResponseMessage']
-        image_file_name = response['ImageFileName']
-        ocr_result = response['OcrResult']
+        if len(response) == 1:
+            self.client_uuid=response['ClientUUID']
+            self.display_message(f"伺服器分配給我的ClientUUID為 [{self.client_uuid}]")
+            # 發送第一張圖片資訊
+            self.send_image(self.image_paths[0])
+        else:
+            response_message = response['ResponseMessage']
+            image_file_name = response['ImageFileName']
+            ocr_result = response['OcrResult']
 
-        # 根據伺服器回應的訊息進行不同的操作
-        if response_message == 'PENDING':
-            self.display_message(f'收到來自伺服器的回應： 伺服器已經接收了 {image_file_name}的OCR請求!')
-        elif response_message == 'SUCCESS':
-            self.display_message(f'收到來自伺服器的回應： 圖片{image_file_name}的OCR結果為 {ocr_result}')
-            # 如果還有未傳送的圖片，則繼續傳送下一張
-            self.response_counter += 1
-            if self.response_counter < len(self.image_paths):
-                self.send_image(self.image_paths[self.response_counter])
-            else:
-                # 如果所有圖片都已傳送完畢，則主動關閉連線
-                self.display_message(f'所有圖片已經傳送完畢，主動斷開與伺服器的連線！')
-                self.websocket.close()
+            # 根據伺服器回應的訊息進行不同的操作
+            if response_message == 'PENDING':
+                self.display_message(f'收到來自伺服器的回應：伺服器已經接收了[{image_file_name}]的OCR請求!')
+            elif response_message == 'SUCCESS':
+                self.display_message(f'收到來自伺服器的回應：圖片[{image_file_name}]的OCR結果為[{ocr_result}]')
+                # 如果還有未傳送的圖片，則繼續傳送下一張
+                self.response_counter += 1
+                if self.response_counter < len(self.image_paths):
+                    self.send_image(self.image_paths[self.response_counter])
+                else:
+                    # 如果所有圖片都已傳送完畢，則主動關閉連線
+                    self.display_message(f'所有圖片已經傳送完畢，主動斷開與伺服器的連線！')
+                    self.websocket.close()
 
     def on_close(self, websocket, *args, **kwargs):
         # 當與伺服器的 WebSocket 連線斷開時，顯示連線結束的訊息
@@ -76,9 +87,9 @@ class OCRWebSocketSender:
 
         # 組裝要傳送的 JSON 資料
         data = {
-            "ClientName":self.client_name,
+            "ClientUUID":self.client_uuid,
             "ImageFileName": os.path.basename(image_path),
-            "ImageData": image_data
+            "ImageBase64Data": image_data
         }
 
         # 發送圖片資料
