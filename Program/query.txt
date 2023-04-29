@@ -1,0 +1,13 @@
+我有兩個問題:
+問題(1)關於語法的差異
+asyncio.run() asyncio.get_event_loop().run_until_complete() 和 asyncio.get_event_loop().run_forever() 三者的差異，為甚麼你推薦使用asyncio.run()?
+這三個的用法請你示範一下，包含:接收的參數、返回值，是否會阻塞執行緒。
+
+問題(2)關於loop的生命週期
+# 將協程加入事件迴圈
+asyncio.get_event_loop().run_until_complete(start_server)
+#讓事件迴圈一直執行(這操作會阻塞主線程)
+asyncio.get_event_loop().run_forever()
+這兩句話中asyncio.get_event_loop()所獲得的loop是同一個物件嗎?
+換句話說，一個縣程裡面透過asyncio.get_event_loop()所獲取到的loop都是同一個嗎?他是全局的嗎?
+他需要手動創建並關閉嗎?
