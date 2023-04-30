@@ -5,16 +5,18 @@ import json
 import configparser
 import uuid
 from datetime import datetime
+from typing import Dict
 
 # 建立一個叫做 ClientInfo 的類別
 class ClientInfo:
-    def __init__(self, client_name: str, client_uuid: str, image_file_names: set):
+    def __init__(self,websocket ,client_name: str, client_uuid: str, image_file_names: set):
+        self.websocket=websocket
         self.client_name = client_name
         self.client_uuid = client_uuid
         self.image_file_names = image_file_names
 
 # 在全局變量中建立一個 dictionary 叫做 clients
-clients = {}
+clients: Dict[str,ClientInfo] = {}
 
 # 用來輸出訊息的函式
 def display_message(message: str):
@@ -43,7 +45,7 @@ async def server(websocket, path):
                 client_uuid = f"{current_time}-{uuid.uuid4()}"
 
                 # 創建一個 ClientInfo 物件
-                client_info = ClientInfo(message_json['ClientName'], client_uuid, set())
+                client_info = ClientInfo(websocket,message_json['ClientName'], client_uuid, set())
 
                 # 將 uuid 和 ClientInfo 物件加入到 clients 字典中
                 clients[client_uuid] = client_info
@@ -55,7 +57,8 @@ async def server(websocket, path):
 
             # 如果收到圖片
             elif len(message_json) == 3:
-                display_message(f"已收到來自CleintUUID[{message_json['ClientUUID']}]的[{message_json['ImageFileName']}]圖片")
+                client=clients[message_json['ClientUUID']]
+                display_message(f"已收到來自客戶端名稱[{client.client_name}]的[{message_json['ImageFileName']}]圖片")
                 # 組裝要傳送的 JSON 物件
                 data={
                     "ResponseMessage": "SUCCESS",
@@ -65,7 +68,12 @@ async def server(websocket, path):
             # 回傳處理結果
             await websocket.send(json.dumps(data))
     except Exception as e:
-        print(f"客戶端主動關閉連線!")
+        # 尋找客戶端的連線，並移除客戶端的ClientInfo
+        for client_uuid, client_info in list(clients.items()): # 從所有鍵值對尋找
+            if client_info.websocket == websocket:
+                display_message(f"客戶端名稱[{client_info.client_name}]主動斷開連線")
+                del clients[client_uuid] # 刪除元素
+                break
 
 if __name__=='__main__':
     # 讀取設定檔
