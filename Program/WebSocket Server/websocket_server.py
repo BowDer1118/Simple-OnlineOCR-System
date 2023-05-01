@@ -48,17 +48,6 @@ async def handle_handshake(websocket,message_json):
 
     return data
 
-# async def temp_ocr_response(image_file_name):
-#     # ----假裝處理完畢(為了能讓客戶端與伺服器繼續互動)----
-#     # 組裝要傳送的 JSON 物件
-#     data={
-#         "ResponseMessage": "SUCCESS",
-#         "ImageFileName": image_file_name,
-#         "OcrResult": "假裝完成 OCR 任務了"
-#     }
-#     display_message(f"已經將圖片[{image_file_name}]的處理結果傳送給客戶端。")
-#     return data
-
 async def send_to_rabbitmq(message_json):
     #擴充JSON內容
     message_json['OcrResult']=''
@@ -88,9 +77,6 @@ async def handle_image_upload(message_json):
         "ImageFileName": image_file_name,
         "OcrResult": "尚未得到OCR結果"
     }
-
-    #為了要讓伺服器與客戶端可以通訊，先暫時使用temp_ocr_response的data當作要返回給客戶端的資料
-    # data = await temp_ocr_response(image_file_name)
 
     return data
 
