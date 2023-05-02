@@ -4,7 +4,7 @@ import copy
 import os
 from datetime import datetime
 
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import wait
 import configparser
 from websocket import WebSocketApp
@@ -128,24 +128,24 @@ if __name__ == "__main__":
     ws_host = config.get('WebSocket', 'host')
     ws_port = config.getint('WebSocket', 'port')
     image_dir = config.get('ImagePath', 'image_dir')
-    worker_count = config.getint('ProcessPool', 'worker')
+    max_thread = config.getint('ThreadPool', 'max_thread')
 
     # 構建 WebSocket 伺服器的 url
     server_url = f"ws://{ws_host}:{ws_port}"
     # 獲取待傳送的圖片路徑列表
     image_paths = get_image_paths(image_dir)
 
-    print(f'客戶端模擬程式已經啟動!')
+    print(f'客戶端程式已經啟動，並使用{max_thread}個執行緒向WebSocket進行連線!')
 
-    # 創建多進程池
-    with ProcessPoolExecutor(max_workers=worker_count) as executor:
+    # 創建多執行緒池
+    with ThreadPoolExecutor(max_workers=max_thread) as executor:
         tasks = []
         task_counter = 0
         # 每個任務裡的 OCRWebSocketSender 都會傳送兩張圖片到伺服器
         for i in range(0, len(image_paths), 2):
             task_counter += 1
-            # 將任務提交到多進程池
-            task = executor.submit(connect_to_server, f'客戶端 Process{task_counter}', server_url, image_paths[i:(i+2)])
+            # 將任務提交到多執行緒池
+            task = executor.submit(connect_to_server, f'客戶端 Thread {task_counter}', server_url, image_paths[i:(i+2)])
             tasks.append(task)
         # 等待所有任務執行完畢
         wait(tasks)

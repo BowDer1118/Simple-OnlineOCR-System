@@ -175,6 +175,8 @@ if __name__=='__main__':
     rabbitmq_user = config.get('RabbitMQ', 'account')
     rabbitmq_password = config.get('RabbitMQ', 'password')
     
+    display_message('WebSocket伺服器已啟動!')
+
     loop=asyncio.get_event_loop()
 
     # 建立到 RabbitMQ 的連接
