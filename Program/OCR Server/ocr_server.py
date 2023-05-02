@@ -1,3 +1,4 @@
+# 導入需要的模組
 import pika
 import json
 import base64
@@ -6,80 +7,98 @@ from io import BytesIO
 import pytesseract
 from datetime import datetime
 import configparser
-from concurrent.futures import ProcessPoolExecutor,wait
+from concurrent.futures import ProcessPoolExecutor, wait
 
-# 用來輸出訊息的函式
-def display_message(message: str):
-    # 顯示帶有時間戳的訊息
-    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-    print(f"[{current_time}][OCR Server]: {message}")
+# 定義RabbitMQ消費者類
+class RabbitMQConsumer:
+    def __init__(self, process_name: str):
+        self.process_name = process_name
+        # 使用 configparser 讀取設定檔
+        self.config = configparser.ConfigParser()
+        self.config.read('settings/ocr_server_settings.ini')
+        # 從設定檔中讀取 tesseract 路徑
+        self.tesseract_path = self.config.get('tesseract_location', 'path')
+        # 從設定檔中讀取 RabbitMQ 的連接資訊
+        self.rabbitmq_host = self.config.get('RabbitMQ', 'host')
+        self.rabbitmq_port = self.config.getint('RabbitMQ', 'port') 
+        self.rabbitmq_user = self.config.get('RabbitMQ', 'account')
+        self.rabbitmq_password = self.config.get('RabbitMQ', 'password')
 
-# 定義圖片識別函數
-def image_to_text(image_base64):
-    image_data = base64.b64decode(image_base64)
-    image = Image.open(BytesIO(image_data))
-    text = pytesseract.image_to_string(image, lang='eng')
-    return text
+    # 顯示訊息的方法
+    def display_message(self, message: str):
+        # 獲取當前時間並格式化
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+        print(f"[{current_time}][OCR_Server][{self.process_name}] {message}")
 
-def callback(ch, method, properties, body):
-    data = json.loads(body)
-    client_uuid=data['ClientUUID']
-    image_file_name=data['ImageFileName']
-    display_message(f'已從RabbitMQ伺服器獲取ClientUUID[{client_uuid}]的[{image_file_name}]資料!')
-    
-    #將圖片資料進行OCR並寫入OCR結果
-    data['OcrResult'] = image_to_text(data['ImageBase64Data'])
+    # 將圖片轉換為文字的方法
+    def image_to_text(self, image_base64):
+        # 解碼 base64 圖片數據
+        image_data = base64.b64decode(image_base64)
+        # 將二進制數據轉換為 PIL Image
+        image = Image.open(BytesIO(image_data))
+        # 使用 pytesseract 將圖片轉換為文字
+        text = pytesseract.image_to_string(image, lang='eng')
+        return text
 
-    del data['ImageBase64Data']
+    # 處理 RabbitMQ 消息的回調方法
+    def callback(self, ch, method, properties, body):
+        # 將消息體解析為 JSON
+        data = json.loads(body)
+        client_uuid = data['ClientUUID']
+        image_file_name = data['ImageFileName']
+        self.display_message(f'已從RabbitMQ伺服器獲取ClientUUID[{client_uuid}]的[{image_file_name}]資料!')
+        # 將圖片數據轉換為文字
+        data['OcrResult'] = self.image_to_text(data['ImageBase64Data'])
+        # 刪除圖片數據以節省空間
+        del data['ImageBase64Data']
+        # 發送處理結果至 RabbitMQ
+        ch.basic_publish(exchange='',
+                         routing_key='result_queue',
+                         body=json.dumps(data))
+        self.display_message(f'已將ClientUUID[{client_uuid}]的[{image_file_name}]辨識結果放到RabbitMQ伺服器!')
 
-    ch.basic_publish(exchange='',
-                        routing_key='result_queue',
-                        body=json.dumps(data))
+    # 監控等待處理的隊列
+    def monitor_pending_queue(self):
+        # 設定 tesseract 的路徑
+        pytesseract.pytesseract.tesseract_cmd = self.tesseract_path  
+        # 建立 RabbitMQ 連接
+        credentials = pika.PlainCredentials(self.rabbitmq_user, self.rabbitmq_password)
+        connection = pika.BlockingConnection(pika.ConnectionParameters(self.rabbitmq_host, self.rabbitmq_port, '/', credentials))
+        self.display_message(f'已啟動，並開始監聽RabbitMQ伺服器!')
+
+        # 創建 RabbitMQ 頻道
+        channel = connection.channel()
+
+        # 宣告隊列
+        channel.queue_declare(queue='pending_queue')
+        channel.queue_declare(queue='result_queue')
+
+        # 設定消費者回調方法並啟動消費
+        channel.basic_consume(queue='pending_queue', on_message_callback=self.callback, auto_ack=True)
         
-    display_message(f'已將ClientUUID[{client_uuid}]的[{image_file_name}]辨識結果放到RabbitMQ伺服器!')
+        channel.start_consuming()
 
-def monitor_pending_queue():
-    # 讀取設定檔
+# 創建單一消費者並監控隊列
+def process_task(process_name):
+    consumer = RabbitMQConsumer(process_name)
+    consumer.monitor_pending_queue()
+
+# 主函數
+if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.read('settings/ocr_server_settings.ini')
+    # 從設定檔讀取最大進程數
+    max_process = config.getint('Process', 'max_process')
 
-    # Tesseract OCR引擎的位置
-    tesseract_path = config.get('tesseract_location', 'path')
-    pytesseract.pytesseract.tesseract_cmd = tesseract_path  # 從設定檔讀取Tesseract路徑
+    # 創建多進程的執行池
+    process_pool = ProcessPoolExecutor(max_workers=max_process)
+    tasks = []
 
-    # RabbitMQ 伺服器的設定
-    rabbitmq_host = config.get('RabbitMQ', 'host')
-    rabbitmq_port = config.getint('RabbitMQ', 'port')  # 讀取整數型態的端口號
-    rabbitmq_user = config.get('RabbitMQ', 'account')
-    rabbitmq_password = config.get('RabbitMQ', 'password')
+    # 對每個進程，都提交一個任務到執行池
+    for i in range(max_process):
+        process_pool.submit(process_task, f'Process {i+1}')
 
-    # 連接到 RabbitMQ，使用設定檔的參數
-    credentials = pika.PlainCredentials(rabbitmq_user, rabbitmq_password)
-    connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host, rabbitmq_port, '/', credentials))
-    channel = connection.channel()
+    print(f'OCR伺服器已啟動!')
 
-    channel.queue_declare(queue='pending_queue')
-    channel.queue_declare(queue='result_queue')
-
-    # 設定待處理隊列的回呼函數
-    channel.basic_consume(queue='pending_queue', on_message_callback=callback, auto_ack=True)
-    # 會持續阻塞當前執行緒，且有資料進入pending_queue時，會調用callback函數處理資料
-    channel.start_consuming()
-
-if __name__=='__main__':
-    # 讀取設定檔
-    config = configparser.ConfigParser()
-    config.read('settings/ocr_server_settings.ini')
-    max_process=config.getint('Process', 'max_process')
-
-    #ProcessPool:指定Process數量為max_process個
-    process_pool=ProcessPoolExecutor(max_workers=max_process)
-    #紀錄任務
-    tasks=[]
-    #提交任務給ProcessPool並開始執行任務
-    process_pool.submit(monitor_pending_queue)
-
-    display_message(f'OCR伺服器已啟動，並啟動{max_process}個Process共同監聽RabbitMQ伺服器的資料!')
-    
-    #等待所有任務完成
-    wait(tasks,return_when="ALL_COMPLETED")
+    # 等待所有的進程完成
+    wait(tasks, return_when="ALL_COMPLETED")

@@ -148,7 +148,7 @@ if __name__ == "__main__":
             task = executor.submit(connect_to_server, f'客戶端 Thread {task_counter}', server_url, image_paths[i:(i+2)])
             tasks.append(task)
         # 等待所有任務執行完畢
-        wait(tasks)
+        wait(tasks,return_when="ALL_COMPLETED")
     print(f'客戶端模擬程式已經關閉!')
 
 
