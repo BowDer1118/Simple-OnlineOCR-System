@@ -88,7 +88,7 @@ if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.read('settings/ocr_server_settings.ini')
     # 從設定檔讀取最大進程數
-    max_process = config.getint('Process', 'max_process')
+    max_process = config.getint('ProcessPool', 'max_process')
 
     # 創建多進程的執行池
     process_pool = ProcessPoolExecutor(max_workers=max_process)
