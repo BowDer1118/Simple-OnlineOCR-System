@@ -1,4 +1,3 @@
-###### tags: `系統程式作業` `RabbitMQ應用`
 # RabbitMQ Application - Simple Online OCR System
 這是一個提供線上光學字元辨識的系統，能接受客戶端上傳圖片，然後對圖片進行光學辨識，再將辨識結果回傳給客戶端。
 ## 需求分析
