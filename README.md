@@ -1,3 +1,4 @@
+###### tags: `系統程式作業` `RabbitMQ應用`
 # RabbitMQ Application - Simple Online OCR System
 這是一個提供線上光學字元辨識的系統，能接受客戶端上傳圖片，然後對圖片進行光學辨識，再將辨識結果回傳給客戶端。
 ## 需求分析
@@ -7,7 +8,7 @@
 
 2. **光學字元辨識**：一旦圖片上傳，系統需要能夠對其進行光學字元辨識。這需要使用OCR引擎（如Tesseract）來識別圖片中的文字。
 
-3. **實時溝通**：系統需要能夠與客戶端實時溝通，以提供上傳進度、識別狀態等信息。這可能需要使用WebSocket或其他實時通訊技術來實現。
+3. **實時溝通**：系統需要能夠與客戶端實時溝通。這可能需要使用WebSocket或其他實時通訊技術來實現。
  
 4. **訊息隊列**：考慮到可能有大量的識別請求，系統需要使用訊息隊列（如RabbitMQ）來管理這些請求，以確保所有請求都能夠被有效地處理。
 
@@ -31,7 +32,7 @@
 
 2. **Multi-thread Programming**: 使用Python的concurrent.futures模塊中的ThreadPoolExecutor，我們可以建立一個thread pool，並將想要並行運行的任務提交給這個pool。適合密集I/O的場景。
 
-3. **Coroutine**: 使用Python的asyncio模塊，我們可以建立和管理coroutines。coroutines是一種特殊類型的函數，它可以在執行中途暫停，並在以後的某個時間點恢復執行。這使得我們可以高效地處理I/O等待的情況，而不需要使用多threading或多processing。
+3. **Coroutine**: 使用Python的asyncio模塊，我們可以建立和管理coroutines。coroutines是一種特殊類型的函數，它可以在執行中途暫停，並在以後的某個時間點恢復執行。這使得我們可以高效地處理I/O等待的情況。
 
 4. **WebSocket Client & Server**: 使用Python的websockets和websocket-client模塊，我們可以建立WebSocket的client和server。WebSocket是一種提供全雙工通信通道的網路協定，它使得server和client可以互相發送信息。
 
@@ -39,9 +40,90 @@
 
 6. **Optical Character Recognition (OCR)**: 使用Tesseract OCR引擎，我們可以從圖片中識別出文字。Tesseract是一種由Google開發和維護的強大的OCR引擎，它支援多種語言並且可以在多種平台上運行。
 
-## 系統實作、程式碼
-1. **Client**
+# 事前準備
+### 安裝Python執行環境管理套件Anaconda
+首先，我們需要安裝一個Python環境管理套件，用來建立不同的執行環境。
+![](https://hackmd.io/_uploads/Sk3TSfwH3.png)
+依照作業系統選擇對應的安裝檔案，跟著安裝精靈就能安裝完畢。
+接著使用CMD使用下列指令，檢查Anaconda是否安裝成功。
+:::info
+conda -V
+:::
+![](https://hackmd.io/_uploads/HJEEIMvS3.png)
+若安裝成功，應該會顯示conda版本。
+### 建立虛擬執行環境
+接著利用conda的指令建立虛擬環境:
+:::info
+conda create --name online_ocr python=3.10
+:::
+這行指令會使用Python 3.10版本建立一個虛擬環境online_ocr。
+接著我們需要啟動虛擬環境，使用以下指令:
+:::info
+conda activate online_ocr
+:::
+接著使用pip安裝程式需要的套件:
+:::info
+pip install websocket-client
+pip install websockets
+pip install aio-pika
+pip install pika
+pip install pillow
+:::
+上面這些套件的功能如下:
+1. websocket-client用來向Websocket伺服器連線
+2. websockets用來建立WWebsocket伺服器
+3. aio-pika用來已非同步的方式和RabbitMQ伺服器交換資料
+4. pika用來以同步的方式和RabbitMQ伺服器交換資料
+5. pillow用來載入圖片到記憶體中，是使用OCR引擎的輔助套件
 
+最後，我們在虛擬環境中使用以下指令檢查，套件是否都正確安裝:
+:::info
+conda list
+:::
+![](https://hackmd.io/_uploads/BkCDuzvr3.png)
+到此，執行環境我們就已經準備完畢。
+### 安裝RabbitMQ
+接下來，我們需要安裝RabbitMQ。由於RabbitMQ是使用Erlang語言開發的，因此我們要先安裝Erlang程式語言。
+首先，先到Erlang官方網站下載對應的安裝精靈:
+![](https://hackmd.io/_uploads/SykMKzvHh.png)
+依照安裝精靈安裝Erlang後，到CMD輸入以下指令檢查是否正確安裝:
+:::info
+erl
+:::
+![](https://hackmd.io/_uploads/SkSUtMvSn.png)
+
+接著，我們就可以安裝RabbitMQ伺服器了。先到官方網站下載安裝精靈:
+![](https://hackmd.io/_uploads/HJhctfvBn.png)
+依照安裝精靈安裝伺服器後，我們可以打開工作管理員，選擇"服務"查找RabbitMQ。
+![](https://hackmd.io/_uploads/B1pecMwS2.png)
+若該服務已經啟動，代表RabbitMQ伺服器已經成功安裝並啟動。
+### 安裝OCR引擎Tesseract
+接著我們需要安裝OCR引擎，可以到以下網址尋找Tesseract軟體:
+:::info
+https://tesseract-ocr.github.io/tessdoc/Downloads.html
+:::
+
+![](https://hackmd.io/_uploads/SyyC5GvB2.png)
+
+然後依照作業系統安裝對應的程式，我們要記得安裝之後的路徑，這個路徑在執行OCR時會使用到。
+![](https://hackmd.io/_uploads/SyAmjfwH2.png)
+
+# 程式實作
+
+## Client 客戶端
+客戶端的程式主要功能是向特定的WebSocket伺服器發起連線請求，並將圖片上傳到伺服器等待OCR辨識結果。
+
+客戶端主程式的流程圖
+![](https://hackmd.io/_uploads/H1ls35gB3.png)
+
+執行緒池狀態
+
+![](https://hackmd.io/_uploads/B1Dma9gS2.png)
+
+首先，我創建了一個客戶端的設定檔，用來保存客戶端程式要處理的內容：
+1. WebSocket伺服器位置
+2. 要發送的圖片資料夾路徑
+3. 執行緒池中的執行緒數量上限
 
 ```
 ; WebSocket Server Address
@@ -58,6 +140,9 @@ image_dir=images
 max_thread=4
 ```
 
+
+程式實作
+
 ```python=
 import base64
 import json
@@ -70,6 +155,66 @@ from concurrent.futures import wait
 import configparser
 from websocket import WebSocketApp
 
+# 輔助函數：獲取指定資料夾下所有圖片的路徑
+def get_image_paths(image_dir:str) -> list[str]:
+    # 獲取指定資料夾下的所有檔案名稱
+    files = os.listdir(image_dir)
+
+    image_paths = []
+    # 遍歷資料夾下的所有檔案
+    for f in files:
+        # 如果檔案是圖片（以 .png、.jpg 或 .jpeg 結尾），則將其路徑加入到 image_paths 列表中
+        if f.endswith(('.png', '.jpg', '.jpeg')):
+            image_paths.append(image_dir + '/' + f)
+        else:
+            print(f'在{image_dir}資料夾下，找到非圖片的檔案: {f}')
+    return image_paths
+
+def connect_to_server(client_name:str, server_url:str, image_paths:list[str]):
+    # 創建一個 OCRWebSocketSender 物件並開始與 WebSocket 伺服器連線
+    ocr_request = OCRWebSocketSender(client_name, server_url, image_paths)
+    ocr_request.start()
+
+if __name__ == "__main__":
+    # 解析配置文件中的設定
+    config = configparser.ConfigParser()
+    config.read('settings/client_settings.ini')
+    ws_host = config.get('WebSocket', 'host')
+    ws_port = config.getint('WebSocket', 'port')
+    image_dir = config.get('ImagePath', 'image_dir')
+    max_thread = config.getint('ThreadPool', 'max_thread')
+
+    # 構建 WebSocket 伺服器的 url
+    server_url = f"ws://{ws_host}:{ws_port}"
+    # 獲取待傳送的圖片路徑列表
+    image_paths = get_image_paths(image_dir)
+
+    print(f'客戶端程式已經啟動，並使用{max_thread}個執行緒向WebSocket進行連線!')
+
+    # 創建多執行緒池
+    with ThreadPoolExecutor(max_workers=max_thread) as executor:
+        tasks = []
+        task_counter = 0
+        # 每個任務裡的 OCRWebSocketSender 都會傳送兩張圖片到伺服器
+        for i in range(0, len(image_paths), 2):
+            task_counter += 1
+            # 將任務提交到多執行緒池
+            task = executor.submit(connect_to_server, f'客戶端 Thread {task_counter}', server_url, image_paths[i:(i+2)])
+            tasks.append(task)
+        # 等待所有任務執行完畢
+        wait(tasks,return_when="ALL_COMPLETED")
+    print(f'客戶端模擬程式已經關閉!')
+
+```
+
+執行緒要執行的任務
+![](https://hackmd.io/_uploads/By1Cpcxrh.png)
+
+
+
+程式實作
+
+```python=
 class OCRWebSocketSender:
     def __init__(self, client_name:str, server_url:str, image_paths:list[str]):
         # 初始化 WebSocketApp 物件並設定各種事件的回調函數
@@ -160,59 +305,9 @@ class OCRWebSocketSender:
     def start(self):
         # 啟動 WebSocket 連線
         self.websocket.run_forever()
-
-
-# 輔助函數：獲取指定資料夾下所有圖片的路徑
-def get_image_paths(image_dir:str) -> list[str]:
-    # 獲取指定資料夾下的所有檔案名稱
-    files = os.listdir(image_dir)
-
-    image_paths = []
-    # 遍歷資料夾下的所有檔案
-    for f in files:
-        # 如果檔案是圖片（以 .png、.jpg 或 .jpeg 結尾），則將其路徑加入到 image_paths 列表中
-        if f.endswith(('.png', '.jpg', '.jpeg')):
-            image_paths.append(image_dir + '/' + f)
-        else:
-            print(f'在{image_dir}資料夾下，找到非圖片的檔案: {f}')
-    return image_paths
-
-def connect_to_server(client_name:str, server_url:str, image_paths:list[str]):
-    # 創建一個 OCRWebSocketSender 物件並開始與 WebSocket 伺服器連線
-    ocr_request = OCRWebSocketSender(client_name, server_url, image_paths)
-    ocr_request.start()
-
-if __name__ == "__main__":
-    # 解析配置文件中的設定
-    config = configparser.ConfigParser()
-    config.read('settings/client_settings.ini')
-    ws_host = config.get('WebSocket', 'host')
-    ws_port = config.getint('WebSocket', 'port')
-    image_dir = config.get('ImagePath', 'image_dir')
-    max_thread = config.getint('ThreadPool', 'max_thread')
-
-    # 構建 WebSocket 伺服器的 url
-    server_url = f"ws://{ws_host}:{ws_port}"
-    # 獲取待傳送的圖片路徑列表
-    image_paths = get_image_paths(image_dir)
-
-    print(f'客戶端程式已經啟動，並使用{max_thread}個執行緒向WebSocket進行連線!')
-
-    # 創建多執行緒池
-    with ThreadPoolExecutor(max_workers=max_thread) as executor:
-        tasks = []
-        task_counter = 0
-        # 每個任務裡的 OCRWebSocketSender 都會傳送兩張圖片到伺服器
-        for i in range(0, len(image_paths), 2):
-            task_counter += 1
-            # 將任務提交到多執行緒池
-            task = executor.submit(connect_to_server, f'客戶端 Thread {task_counter}', server_url, image_paths[i:(i+2)])
-            tasks.append(task)
-        # 等待所有任務執行完畢
-        wait(tasks,return_when="ALL_COMPLETED")
-    print(f'客戶端模擬程式已經關閉!')
-
 ```
+
+執行結果:
 
 ```
 客戶端程式已經啟動，並使用4個執行緒向WebSocket進行連線!
@@ -280,7 +375,23 @@ if __name__ == "__main__":
 客戶端模擬程式已經關閉!
 ```
 
-2. **WebSocket Server**
+## WebSocket Server
+負責提供WebSocket連線的伺服器，接收客戶端的圖片並轉發到RabbitMQ伺服器，然後監聽RabbitMQ伺服器，回傳OCR結果給客戶端。
+
+主程式流程圖:
+![](https://hackmd.io/_uploads/ryFp1QwS2.png)
+
+事件迴圈:
+![](https://hackmd.io/_uploads/H1J957PS2.png)
+
+註冊事件1:處理WebSocket連線
+![](https://hackmd.io/_uploads/HJ_N9QDr3.png)
+
+註冊事件2:監聽RabbitMQ伺服器
+![](https://hackmd.io/_uploads/r1nNoQwB3.png)
+
+
+首先，我一樣先準備一個設定檔案，用來指定WebSocket伺服器要載入的設定。
 ```
 [WebSocket]
 host=127.0.0.1
@@ -292,6 +403,12 @@ port=5672
 account=guest
 password=guest
 ```
+
+這個設定檔案，指定
+1. WebSocket伺服器向外提供連線的位置
+2. RabbitMQ主機位置，和登入的帳號密碼
+
+程式碼:
 
 ```python=
 # 引入所需的模組
@@ -545,7 +662,17 @@ if __name__=='__main__':
 [2023-05-02 10:51:30.378910][WebSocket伺服器] 伺服器與客戶端名稱[客戶端 Thread 5]斷開連線，原因:通訊發生意外狀況，客戶端可能已經主動關閉連線。
 ```
 
-3. **OCR Server**
+## OCR Server
+監聽RabbitMQ伺服器，將圖片進行OCR再轉發給RabbitMQ伺服器。
+
+主程式流程圖:
+![](https://hackmd.io/_uploads/rkORnXvH2.png)
+
+進程的任務內容:
+![](https://hackmd.io/_uploads/r1uZAQwH3.png)
+
+
+首先，一樣先建立一個設定檔案，紀錄OCR伺服器要設定的資訊。
 ```
 [tesseract_location]
 path=C:\Program Files (x86)\Tesseract-OCR\tesseract.exe
@@ -559,6 +686,14 @@ password=guest
 [ProcessPool]
 max_process=4
 ```
+
+設定檔案包含以下資訊:
+1. Tesseract引擎的執行檔位置
+2. 要連線的RabbitMQ伺服器
+3. 進程池中的進程最大數量
+
+程式碼:
+
 ```python=
 # 導入需要的模組
 import pika
@@ -695,7 +830,7 @@ OCR伺服器已啟動!
 [2023-05-02 10:51:30.374921][OCR_Server][Process 1] 已將ClientUUID[2023-05-02-10-51-30-df42c8ad-2f01-4f93-b4fd-926c598dae37]的[Screenshot_9.png]辨識結果放到RabbitMQ伺服器!
 ```
 
-## 資料參考
+# 資料參考
 1. RabbitMQ安裝: https://juejin.cn/post/7101855270854197284
 2. Coroutine使用方法: https://www.maxlist.xyz/2020/03/29/python-coroutine/amp/
 3. OCR引擎: https://github.com/tesseract-ocr/tesseract
