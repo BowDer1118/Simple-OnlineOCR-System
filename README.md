@@ -41,27 +41,38 @@
 6. **Optical Character Recognition (OCR)**: 使用Tesseract OCR引擎，我們可以從圖片中識別出文字。Tesseract是一種由Google開發和維護的強大的OCR引擎，它支援多種語言並且可以在多種平台上運行。
 
 # 事前準備
+
 ### 安裝Python執行環境管理套件Anaconda
 首先，我們需要安裝一個Python環境管理套件，用來建立不同的執行環境。
 ![](https://hackmd.io/_uploads/Sk3TSfwH3.png)
+
 依照作業系統選擇對應的安裝檔案，跟著安裝精靈就能安裝完畢。
 接著使用CMD使用下列指令，檢查Anaconda是否安裝成功。
+
 :::info
-conda -V
+ conda -V
 :::
+
 ![](https://hackmd.io/_uploads/HJEEIMvS3.png)
+
 若安裝成功，應該會顯示conda版本。
+
 ### 建立虛擬執行環境
 接著利用conda的指令建立虛擬環境:
+
 :::info
 conda create --name online_ocr python=3.10
 :::
+
 這行指令會使用Python 3.10版本建立一個虛擬環境online_ocr。
 接著我們需要啟動虛擬環境，使用以下指令:
+
 :::info
 conda activate online_ocr
 :::
+
 接著使用pip安裝程式需要的套件:
+
 :::info
 pip install websocket-client
 pip install websockets
@@ -69,6 +80,7 @@ pip install aio-pika
 pip install pika
 pip install pillow
 :::
+
 上面這些套件的功能如下:
 1. websocket-client用來向Websocket伺服器連線
 2. websockets用來建立WWebsocket伺服器
@@ -77,11 +89,15 @@ pip install pillow
 5. pillow用來載入圖片到記憶體中，是使用OCR引擎的輔助套件
 
 最後，我們在虛擬環境中使用以下指令檢查，套件是否都正確安裝:
+
 :::info
 conda list
 :::
+
 ![](https://hackmd.io/_uploads/BkCDuzvr3.png)
+
 到此，執行環境我們就已經準備完畢。
+
 ### 安裝RabbitMQ
 接下來，我們需要安裝RabbitMQ。由於RabbitMQ是使用Erlang語言開發的，因此我們要先安裝Erlang程式語言。
 首先，先到Erlang官方網站下載對應的安裝精靈:
